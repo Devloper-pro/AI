@@ -7,7 +7,6 @@ import traceback
 import io
 import json
 import base64
-from streamlit_option_menu import option_menu
 
 # -----------------------------
 # 1. CONFIGURATION
@@ -263,7 +262,7 @@ def load_fee_structure():
     return fee_map
 
 # -----------------------------
-# 5. SIDEBAR WITH OPTION MENU
+# 5. SIDEBAR (using st.radio – stable)
 # -----------------------------
 with st.sidebar:
     st.header("Administration")
@@ -279,20 +278,7 @@ with st.sidebar:
     else:
         menu_options = ["Executive Dashboard","Student Attendance","Attendance Report","Fee Collection","Daily Cash Report","Student Records","Edit Student Details","Add New Student"]
 
-    icons = {
-        "Executive Dashboard": "speedometer2","Student Attendance": "calendar-check","Attendance Report": "bar-chart-line",
-        "Fee Collection": "cash-stack","Daily Cash Report": "graph-up-arrow","Student Records": "people",
-        "Edit Student Details": "pencil-square","Add New Student": "person-plus"
-    }
-    menu = option_menu(None, menu_options, [icons.get(o,"circle") for o in menu_options],
-        menu_icon="cast", default_index=0,
-        styles={
-            "container": {"padding": "0!important", "background-color": "#0f172a"},
-            "icon": {"color": "#fbbf24", "font-size": "16px"},
-            "nav-link": {"font-size": "14px","text-align": "left","margin": "0px","--hover-color": "#1e293b","color": "#e2e8f0"},
-            "nav-link-selected": {"background-color": "#1e3a5f", "color": "white"},
-        }
-    )
+    menu = st.radio("Navigation", menu_options, label_visibility="collapsed")
 
     if st.button("Logout"):
         st.session_state.clear()
@@ -320,7 +306,7 @@ if not all([master_sheet, attendance_sheet, fees_sheet]):
     st.error("Required sheets missing.")
     st.stop()
 
-# Ensure ANNUAL_FEE and ADMISSION_FEE columns exist (matching sheet headers)
+# Ensure ANNUAL_FEE and ADMISSION_FEE columns exist
 def ensure_column(sheet, col_name):
     headers = sheet.row_values(1)
     if col_name not in headers:
@@ -393,7 +379,7 @@ if menu == "Executive Dashboard" and role == "Principal":
         col3.metric("Today Fees", f"₹{today_fees}")
         col4.metric("Month Fees", f"₹{month_col} ({col_pct:.0f}%)")
 
-        # Top 5 Outstanding (using ANNUAL_FEE and ADMISSION_FEE)
+        # Top 5 Outstanding
         if not df_master.empty:
             outstanding_list = []
             for _, student in df_master.iterrows():
