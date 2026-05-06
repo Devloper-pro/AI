@@ -1,5 +1,6 @@
 import streamlit as st
 import gspread
+from gspread.utils import rowcol_to_a1   # for batch update
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime, timedelta
 import pandas as pd
@@ -23,7 +24,6 @@ if "authenticated" not in st.session_state:
 if not st.session_state["authenticated"]:
     _, center, _ = st.columns([1, 2, 1])
     with center:
-        # Logo show karne ki koshish karo, nahi to school ka naam hi dikhao
         try:
             st.image("School_logo.png", width=150)
         except:
@@ -71,9 +71,9 @@ wb = get_workbook()
 if wb is None: st.stop()
 
 # -----------------------------
-# 4. CACHING FUNCTIONS
+# 4. CACHING FUNCTIONS (TTL increased to 1800 sec)
 # -----------------------------
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=1800)
 def get_sheet_names():
     return [ws.title.strip() for ws in wb.worksheets()]
 
@@ -95,7 +95,7 @@ def get_available_classes():
             if class_name: classes.append(class_name)
     return sorted(classes) if classes else ["LKG"]
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=1800)
 def load_master_data(class_name):
     sheet = find_sheet(f"MASTER_{class_name}")
     if not sheet: return pd.DataFrame(), []
@@ -110,17 +110,17 @@ def load_master_data(class_name):
         student_list = [f"{row[id_col]} - {row[name_col]}" for _, row in df.iterrows()]
     return df, student_list
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=1800)
 def load_attendance_data(class_name):
     sheet = find_sheet(f"ATTENDANCE_{class_name}")
     return sheet.get_all_values() if sheet else []
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=1800)
 def load_fees_data(class_name):
     sheet = find_sheet(f"FEES_{class_name}")
     return sheet.get_all_values() if sheet else []
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=1800)
 def load_fee_structure():
     sheet = find_sheet("FEES_STRUCTURE")
     if not sheet: return {}
@@ -198,7 +198,6 @@ def compute_paid_total(sid, all_fees):
 # -----------------------------
 # 7. BRANDING
 # -----------------------------
-# Logo display (agar file hai to dikhao, nahi to sirf naam)
 try:
     st.image("School_logo.png", width=120)
 except:
@@ -278,7 +277,7 @@ if menu == "Executive Dashboard" and role == "Principal":
         else: st.write("None")
 
 # =============================
-# 9. STUDENT ATTENDANCE
+# 9. STUDENT ATTENDANCE (BATCH UPDATES FOR SPEED)
 # =============================
 elif menu == "Student Attendance":
     st.subheader(f"Daily Attendance – {selected_class}")
@@ -296,7 +295,7 @@ elif menu == "Student Attendance":
                         ci = hdrs.index(today)+1 if today in hdrs else len(hdrs)+1
                         if today not in hdrs: attendance_sheet.update_cell(1, ci, today)
                         cell = attendance_sheet.find(sid)
-                        attendance_sheet.update_cell(cell.row, ci, "P")
+                        attendance_sheet.update_cell(cell.row, ci, "P")   # single cell, fine
                         st.success(f"Marked {sel}")
                         st.cache_data.clear()
                     except Exception as e: st.error(f"Error: {e}")
@@ -308,14 +307,19 @@ elif menu == "Student Attendance":
                     ci = hdrs.index(today)+1 if today in hdrs else len(hdrs)+1
                     if today not in hdrs: attendance_sheet.update_cell(1, ci, today)
                     ids = [f"{row[id_col]}" for _, row in df_master.iterrows()]
-                    cnt = 0
+                    # ------ BATCH UPDATE ------
+                    cells_to_update = []
                     for sid in ids:
                         try:
                             cell = attendance_sheet.find(sid)
-                            attendance_sheet.update_cell(cell.row, ci, "P")
-                            cnt += 1
+                            cells_to_update.append({
+                                'range': rowcol_to_a1(cell.row, ci),
+                                'values': [['P']]
+                            })
                         except: pass
-                    st.success(f"All {cnt} marked")
+                    if cells_to_update:
+                        attendance_sheet.batch_update(cells_to_update)
+                    st.success(f"All {len(cells_to_update)} marked Present")
                     st.cache_data.clear()
                 except Exception as e: st.error(f"Error: {e}")
         with c3:
@@ -323,20 +327,26 @@ elif menu == "Student Attendance":
                 try:
                     today = datetime.now().strftime("%d-%m-%Y")
                     hdrs = attendance_sheet.row_values(1)
-                    if today not in hdrs: st.warning("Column not created.")
+                    if today not in hdrs:
+                        st.warning("Column not created.")
                     else:
                         ci = hdrs.index(today)+1
                         ids = [f"{row[id_col]}" for _, row in df_master.iterrows()]
-                        ac = 0
+                        # ------ BATCH UPDATE (only absent) ------
+                        cells_to_update = []
                         for sid in ids:
                             try:
                                 cell = attendance_sheet.find(sid)
                                 val = attendance_sheet.cell(cell.row, ci).value
                                 if not val or val.strip()=="":
-                                    attendance_sheet.update_cell(cell.row, ci, "A")
-                                    ac += 1
+                                    cells_to_update.append({
+                                        'range': rowcol_to_a1(cell.row, ci),
+                                        'values': [['A']]
+                                    })
                             except: pass
-                        st.success(f"Marked {ac} absent")
+                        if cells_to_update:
+                            attendance_sheet.batch_update(cells_to_update)
+                        st.success(f"Marked {len(cells_to_update)} students as Absent")
                         st.cache_data.clear()
                 except Exception as e: st.error(f"Error: {e}")
 
@@ -436,7 +446,6 @@ elif menu == "Fee Collection":
                         fees_sheet.insert_row([sid, amt, mo, f"{ts} {mode}", fee_type], index=2)
                         st.success(f"Payment of ₹{amt} recorded ({fee_type})")
                         st.cache_data.clear()
-                        # Simple receipt (no heavy CSS)
                         receipt_html = f"""
                         <div style="border:1px solid #ccc; padding:15px; margin-top:20px; border-radius:8px;">
                             <h3 style="text-align:center;">PAYMENT RECEIPT</h3>
@@ -445,217 +454,4 @@ elif menu == "Fee Collection":
                             <p><b>Student ID:</b> {sid}</p>
                             <p><b>Student Name:</b> {student_name}</p>
                             <p><b>Fee Type:</b> {fee_type}</p>
-                            <p><b>Amount Paid:</b> ₹{amt}</p>
-                            <p><b>Payment Mode:</b> {mode}</p>
-                            <p><b>Month:</b> {mo}</p>
-                        </div>
-                        """
-                        st.markdown(receipt_html, unsafe_allow_html=True)
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            st.markdown("""
-                                <button onclick="window.print()" style="background:#1a3b5d; color:white; border:none; padding:8px 16px; border-radius:6px; cursor:pointer;">
-                                    Print Receipt
-                                </button>
-                            """, unsafe_allow_html=True)
-                        with col2:
-                            b64 = base64.b64encode(receipt_html.encode()).decode()
-                            href = f'<a href="data:text/html;base64,{b64}" download="Receipt_{sid}_{datetime.now().strftime("%Y%m%d%H%M")}.html">Download Receipt</a>'
-                            st.markdown(href, unsafe_allow_html=True)
-
-# =============================
-# 12. DAILY CASH REPORT
-# =============================
-elif menu == "Daily Cash Report":
-    if role not in ["Clerk","Principal"]:
-        st.error("Access Denied"); st.stop()
-    st.subheader(f"Today's Financial Summary – {selected_class}")
-    today_str = datetime.now().strftime("%d-%m-%Y")
-    if fees_data and len(fees_data)>1:
-        fh = fees_data[0]
-        today_rows = [r for r in fees_data[1:] if len(r)>=4 and r[3].split(' ')[0]==today_str]
-        if today_rows:
-            amt_col = fh.index('Amount') if 'Amount' in fh else 1
-            total = sum(int(r[amt_col]) for r in today_rows if r[amt_col].isdigit())
-            st.metric("Total Today", f"₹{total}")
-            display_cols = ['Student ID','Amount','Month','Date of payment']
-            if 'Fee Type' in fh: display_cols.append('Fee Type')
-            df_today = pd.DataFrame(today_rows, columns=fh)
-            available_cols = [c for c in display_cols if c in df_today.columns]
-            st.dataframe(df_today[available_cols])
-        else: st.info("No transactions today.")
-    else: st.info("No fee records.")
-
-# =============================
-# 13. STUDENT RECORDS
-# =============================
-elif menu == "Student Records":
-    st.subheader(f"Student Profile – {selected_class}")
-    if not student_list: st.warning("No students.")
-    else:
-        sel = st.selectbox("Select Student", ["-- Select --"]+student_list)
-        if sel != "-- Select --":
-            sid = sel.split(" - ")[0]
-            mask = df_master[id_col].astype(str)==sid
-            if mask.any():
-                sd = df_master[mask].iloc[0]
-                name = sd.get(name_col,'')
-                roll = sd.get('ROLL NO','')
-                father = sd.get('FATHER','') or sd.get('FATHER NAME','')
-                mobile = sd.get('MOBILE','')
-                addr = sd.get('ADDRESS','N/A')
-                ann = sd.get('ANNUAL_FEE','0')
-                adm = sd.get('ADMISSION_FEE','0')
-                paid = compute_paid_total(sid, fees_data)
-                st.info(f"**{name}** | Roll: {roll}")
-                c1,c2 = st.columns(2)
-                c1.write(f"Father: {father}")
-                c1.write(f"Mobile: {mobile}")
-                c1.write(f"Annual Fees Due: ₹{ann}")
-                c1.write(f"Admission Fees Due: ₹{adm}")
-                c2.write(f"Total Paid: ₹{paid}")
-                c2.write(f"Address: {addr}")
-                st.divider()
-                st.subheader("Fee History")
-                if fees_data and len(fees_data)>1:
-                    fh = fees_data[0]
-                    hist = [r for r in fees_data[1:] if r[0].upper()==sid.upper()]
-                    if hist:
-                        st.table([fh]+hist)
-                        df_h = pd.DataFrame(hist, columns=fh)
-                        buf = io.BytesIO()
-                        with pd.ExcelWriter(buf, engine='xlsxwriter') as w: df_h.to_excel(w, index=False)
-                        st.download_button("Download History", buf.getvalue(), f"FeeHistory_{sid}.xlsx")
-                    else: st.write("No history.")
-                else: st.write("No records.")
-            else: st.warning("Not found.")
-
-# =============================
-# 14. EDIT STUDENT DETAILS
-# =============================
-elif menu == "Edit Student Details":
-    st.subheader(f"Edit Student – {selected_class}")
-    if not student_list: st.warning("No students.")
-    else:
-        sel = st.selectbox("Choose Student", ["-- Select --"]+student_list)
-        if sel != "-- Select --":
-            sid = sel.split(" - ")[0]
-            try:
-                cell = master_sheet.find(sid)
-                rn = cell.row
-                rd = master_sheet.row_values(rn)
-                hd = [h.strip() for h in master_sheet.row_values(1)]
-                def fc(n):
-                    for i,h in enumerate(hd):
-                        if h.upper() == n.upper(): return i
-                    return None
-                def gv(col): return rd[col] if col is not None and col < len(rd) else ""
-                cname = fc('NAME')
-                cfather = fc('FATHER') or fc('FATHER NAME')
-                cmobile = fc('MOBILE')
-                caddress = fc('ADDRESS')
-                caadhar = fc('AADHAR') or fc('AADHAAR')
-                cannual = fc('ANNUAL_FEE')
-                cadm = fc('ADMISSION_FEE')
-                if caddress is None:
-                    master_sheet.update_cell(1, len(hd)+1, 'ADDRESS')
-                    st.cache_data.clear()
-                    hd.append('ADDRESS')
-                    caddress = len(hd)-1
-                if cannual is None:
-                    master_sheet.update_cell(1, len(hd)+1, 'ANNUAL_FEE')
-                    st.cache_data.clear()
-                    hd.append('ANNUAL_FEE')
-                    cannual = len(hd)-1
-                if cadm is None:
-                    master_sheet.update_cell(1, len(hd)+1, 'ADMISSION_FEE')
-                    st.cache_data.clear()
-                    hd.append('ADMISSION_FEE')
-                    cadm = len(hd)-1
-
-                current_name = gv(cname)
-                current_father = gv(cfather)
-                current_mobile = gv(cmobile)
-                current_address = gv(caddress)
-                current_aadhaar = gv(caadhar) if caadhar else ""
-                current_annual = gv(cannual) if cannual else "0"
-                current_adm = gv(cadm) if cadm else "0"
-
-                st.info(f"**ID:** {sid}")
-                with st.form("edit_form"):
-                    nn = st.text_input("Name", value=current_name)
-                    nf = st.text_input("Father", value=current_father)
-                    nm = st.text_input("Mobile", value=current_mobile)
-                    na = st.text_input("Address", value=current_address)
-                    nd = st.text_input("Aadhaar", value=current_aadhaar)
-                    nannual = st.number_input("Annual Fees Due", value=int(current_annual) if current_annual.isdigit() else 0)
-                    nadm = st.number_input("Admission Fees Due", value=int(current_adm) if current_adm.isdigit() else 0)
-                    if st.form_submit_button("Update"):
-                        if cname: master_sheet.update_cell(rn, cname+1, nn)
-                        if cfather: master_sheet.update_cell(rn, cfather+1, nf)
-                        if cmobile: master_sheet.update_cell(rn, cmobile+1, nm)
-                        master_sheet.update_cell(rn, caddress+1, na)
-                        if caadhar: master_sheet.update_cell(rn, caadhar+1, nd)
-                        master_sheet.update_cell(rn, cannual+1, str(nannual))
-                        master_sheet.update_cell(rn, cadm+1, str(nadm))
-                        st.success("Updated!")
-                        st.cache_data.clear()
-            except Exception as e: st.error(f"Error: {e}")
-
-# =============================
-# 15. ADD NEW STUDENT
-# =============================
-elif menu == "Add New Student":
-    st.subheader(f"Enroll New Student – {selected_class}")
-    existing_ids = []; existing_rolls = []
-    if not df_master.empty and id_col:
-        existing_ids = df_master[id_col].astype(str).tolist()
-        if 'ROLL NO' in df_master.columns:
-            try: existing_rolls = df_master['ROLL NO'].astype(int).tolist()
-            except: pass
-    prefix = "CME"
-    max_s = 0
-    for sid in existing_ids:
-        if sid.startswith(prefix):
-            num = sid[len(prefix):]
-            if num.isdigit(): max_s = max(max_s, int(num))
-    new_id = f"{prefix}{max_s+1:02d}"
-    new_roll = 1 if not existing_rolls else max(existing_rolls)+1
-
-    with st.form("add_student_form", clear_on_submit=True):
-        st.info(new_id); st.caption("Auto ID")
-        st.info(str(new_roll)); st.caption("Auto Roll")
-        nn = st.text_input("Full Name *")
-        nf = st.text_input("Father's Name *")
-        nm = st.text_input("Mobile")
-        na = st.text_input("Address")
-        nd = st.text_input("Aadhaar")
-        nannual = st.number_input("Annual Fees Due", value=0)
-        nadm = st.number_input("Admission Fees Due", value=0)
-        if st.form_submit_button("Enroll"):
-            if not nn.strip() or not nf.strip():
-                st.error("Name and Father required.")
-            else:
-                headers = master_sheet.row_values(1)
-                row_data = {}
-                row_data['ID'] = new_id
-                row_data['NAME'] = nn.strip()
-                row_data['ROLL NO'] = str(new_roll)
-                row_data['FATHER'] = nf.strip()
-                row_data['NODE'] = ""
-                row_data['MOBILE'] = nm.strip() if nm else ""
-                row_data['ANNUAL_FEE'] = str(nannual)
-                row_data['ADMISSION_FEE'] = str(nadm)
-                row_data['ADDRESS'] = na.strip() if na else ""
-                row_data['AADHAR'] = nd.strip() if nd else ""
-                for col in ['ID','NAME','ROLL NO','FATHER','NODE','MOBILE','ANNUAL_FEE','ADMISSION_FEE','ADDRESS','AADHAR']:
-                    if col not in headers:
-                        master_sheet.update_cell(1, len(headers)+1, col)
-                        headers.append(col)
-                final_row = [row_data.get(h, "") for h in headers]
-                master_sheet.append_row(final_row, value_input_option='USER_ENTERED')
-                attendance_sheet.append_row([new_id])
-                st.success(f"Enrolled {nn}")
-                st.balloons()
-                st.cache_data.clear()
-                st.rerun()
+                           
