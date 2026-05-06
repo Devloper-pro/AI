@@ -28,7 +28,7 @@ if not st.session_state["authenticated"]:
             st.image("School_logo.png", width=150)
         except:
             pass
-        st.markdown("<h2 style='text-align: center;'>Cambridge International</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center;'>Cambridge International School</h2>", unsafe_allow_html=True)
         role = st.selectbox("Select Role", ["Teacher", "Clerk", "Principal"])
         pwd = st.text_input("Password", type="password")
         if st.button("Login"):
@@ -203,7 +203,7 @@ try:
     st.image("School_logo.png", width=120)
 except:
     pass
-st.markdown("<h2 style='text-align:center;'>CAMBRIDGE INTERNATIONAL</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align:center;'>CAMBRIDGE INTERNATIONAL SCHOOL</h2>", unsafe_allow_html=True)
 st.divider()
 
 # =============================
