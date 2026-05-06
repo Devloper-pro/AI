@@ -71,7 +71,7 @@ wb = get_workbook()
 if wb is None: st.stop()
 
 # -----------------------------
-# 4. CACHING FUNCTIONS (TTL increased to 1800 sec)
+# 4. CACHING FUNCTIONS (TTL = 1800 sec)
 # -----------------------------
 @st.cache_data(ttl=1800)
 def get_sheet_names():
@@ -277,7 +277,7 @@ if menu == "Executive Dashboard" and role == "Principal":
         else: st.write("None")
 
 # =============================
-# 9. STUDENT ATTENDANCE (BATCH UPDATES FOR SPEED)
+# 9. STUDENT ATTENDANCE (BATCH UPDATES)
 # =============================
 elif menu == "Student Attendance":
     st.subheader(f"Daily Attendance – {selected_class}")
@@ -295,7 +295,7 @@ elif menu == "Student Attendance":
                         ci = hdrs.index(today)+1 if today in hdrs else len(hdrs)+1
                         if today not in hdrs: attendance_sheet.update_cell(1, ci, today)
                         cell = attendance_sheet.find(sid)
-                        attendance_sheet.update_cell(cell.row, ci, "P")   # single cell, fine
+                        attendance_sheet.update_cell(cell.row, ci, "P")
                         st.success(f"Marked {sel}")
                         st.cache_data.clear()
                     except Exception as e: st.error(f"Error: {e}")
@@ -307,7 +307,6 @@ elif menu == "Student Attendance":
                     ci = hdrs.index(today)+1 if today in hdrs else len(hdrs)+1
                     if today not in hdrs: attendance_sheet.update_cell(1, ci, today)
                     ids = [f"{row[id_col]}" for _, row in df_master.iterrows()]
-                    # ------ BATCH UPDATE ------
                     cells_to_update = []
                     for sid in ids:
                         try:
@@ -332,7 +331,6 @@ elif menu == "Student Attendance":
                     else:
                         ci = hdrs.index(today)+1
                         ids = [f"{row[id_col]}" for _, row in df_master.iterrows()]
-                        # ------ BATCH UPDATE (only absent) ------
                         cells_to_update = []
                         for sid in ids:
                             try:
@@ -411,7 +409,7 @@ elif menu == "Attendance Report":
                 )
 
 # =============================
-# 11. FEE COLLECTION (with Receipt)
+# 11. FEE COLLECTION (with Receipt – string literal fixed)
 # =============================
 elif menu == "Fee Collection":
     if role not in ["Clerk","Principal"]:
@@ -446,12 +444,20 @@ elif menu == "Fee Collection":
                         fees_sheet.insert_row([sid, amt, mo, f"{ts} {mode}", fee_type], index=2)
                         st.success(f"Payment of ₹{amt} recorded ({fee_type})")
                         st.cache_data.clear()
+                        # Receipt (safe f-string closed correctly)
                         receipt_html = f"""
-                        <div style="border:1px solid #ccc; padding:15px; margin-top:20px; border-radius:8px;">
-                            <h3 style="text-align:center;">PAYMENT RECEIPT</h3>
-                            <p><b>Receipt No:</b> RCP-{int(datetime.timestamp(datetime.now()))}</p>
-                            <p><b>Date:</b> {datetime.now().strftime("%d-%m-%Y %H:%M")}</p>
-                            <p><b>Student ID:</b> {sid}</p>
-                            <p><b>Student Name:</b> {student_name}</p>
-                            <p><b>Fee Type:</b> {fee_type}</p>
-                           
+<div style="border:1px solid #ccc; padding:15px; margin-top:20px; border-radius:8px;">
+    <h3 style="text-align:center;">PAYMENT RECEIPT</h3>
+    <p><b>Receipt No:</b> RCP-{int(datetime.timestamp(datetime.now()))}</p>
+    <p><b>Date:</b> {datetime.now().strftime("%d-%m-%Y %H:%M")}</p>
+    <p><b>Student ID:</b> {sid}</p>
+    <p><b>Student Name:</b> {student_name}</p>
+    <p><b>Fee Type:</b> {fee_type}</p>
+    <p><b>Amount Paid:</b> ₹{amt}</p>
+    <p><b>Payment Mode:</b> {mode}</p>
+    <p><b>Month:</b> {mo}</p>
+</div>
+"""
+                        st.markdown(receipt_html, unsafe_allow_html=True)
+                        col1, col2 = st.columns(2)
+                     
