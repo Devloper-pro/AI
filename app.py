@@ -13,119 +13,6 @@ import base64
 # -----------------------------
 st.set_page_config(page_title="Cambridge Portal", page_icon="🏫", layout="wide")
 
-# =====================================================================
-# GLASSMORPHISM + ANIMATIONS UI
-# =====================================================================
-st.markdown("""
-<style>
-/* ---------- Glass Cards ---------- */
-div[data-testid="stVerticalBlock"] > div {
-    background: rgba(30, 41, 59, 0.65);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 18px;
-    padding: 24px;
-    margin-bottom: 20px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-}
-
-/* ---------- Buttons ---------- */
-.stButton > button {
-    border-radius: 12px;
-    background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);
-    border: none;
-    color: white;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    transition: all 0.3s ease;
-    padding: 10px 24px;
-}
-.stButton > button:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 12px 24px rgba(0,0,0,0.4);
-    background: linear-gradient(135deg, #2d5a87 0%, #1e3a5f 100%);
-}
-
-/* ---------- Sidebar ---------- */
-section[data-testid="stSidebar"] {
-    background-color: #0f172a;
-    border-right: 1px solid #1e293b;
-    transition: width 0.3s ease;
-}
-section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label {
-    color: #e2e8f0;
-}
-section[data-testid="stSidebar"] .stSelectbox label {
-    color: #e2e8f0 !important;
-}
-
-/* ---------- Input Fields ---------- */
-.stTextInput input, .stNumberInput input, .stSelectbox select {
-    background-color: #1e293b !important;
-    border: 1px solid #334155 !important;
-    border-radius: 10px !important;
-    color: white !important;
-}
-
-/* ---------- Tables ---------- */
-.stTable tbody tr:nth-child(even) {
-    background-color: rgba(30, 41, 59, 0.5);
-}
-.stTable tbody tr:hover, [data-testid="stTable"] tbody tr:hover {
-    background-color: rgba(30, 64, 95, 0.3) !important;
-    transition: background-color 0.2s ease;
-}
-
-/* ---------- Metric Cards ---------- */
-[data-testid="metric-container"] {
-    background: linear-gradient(145deg, #1e293b, #0f172a);
-    border-radius: 20px;
-    border: 1px solid #334155;
-    padding: 20px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-}
-[data-testid="metric-container"] label {
-    color: #94a3b8 !important;
-    font-size: 13px;
-    font-weight: 500;
-}
-[data-testid="metric-container"] div[data-testid="stMetricValue"] {
-    font-size: 34px !important;
-    font-weight: 800;
-    color: #fbbf24 !important;
-}
-
-/* ---------- Fade-in Animation ---------- */
-.main > div:first-child {
-    animation: fadeIn 0.6s ease;
-}
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-/* ---------- Receipt Card ---------- */
-.receipt-card {
-    background: #1e2a3a;
-    border: 1px dashed #f0c45a;
-    border-radius: 12px;
-    padding: 20px;
-    margin: 20px 0;
-}
-.receipt-card h3 {
-    color: #f0c45a;
-    text-align: center;
-    margin-bottom: 15px;
-}
-.receipt-card p {
-    font-size: 16px;
-    margin: 5px 0;
-    color: #e0e7f2;
-}
-</style>
-""", unsafe_allow_html=True)
-
 # -----------------------------
 # 2. LOGIN
 # -----------------------------
@@ -134,42 +21,27 @@ if "authenticated" not in st.session_state:
     st.session_state["role"] = None
 
 if not st.session_state["authenticated"]:
-    st.markdown("""
-    <style>
-    .login-card {
-        background: rgba(30, 41, 59, 0.7);
-        backdrop-filter: blur(15px);
-        border: 1px solid rgba(255,255,255,0.1);
-        border-radius: 24px;
-        padding: 40px;
-        max-width: 400px;
-        margin: 80px auto;
-        box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-        text-align: center;
-    }
-    .login-card h2 {
-        color: #fbbf24;
-        margin-bottom: 30px;
-    }
-    </style>
-    <div class="login-card">
-    """, unsafe_allow_html=True)
-
-    st.markdown("<h2>Cambridge International</h2>", unsafe_allow_html=True)
-    role = st.selectbox("Select Role", ["Teacher", "Clerk", "Principal"])
-    pwd = st.text_input("Password", type="password")
-    if st.button("Login"):
-        valid = False
-        if role == "Teacher" and pwd == "TCH2024": valid = True
-        elif role == "Clerk" and pwd == "CLK2024": valid = True
-        elif role == "Principal" and pwd == "PRN2024": valid = True
-        if valid:
-            st.session_state["authenticated"] = True
-            st.session_state["role"] = role
-            st.rerun()
-        else:
-            st.error("Invalid credentials")
-    st.markdown("</div>", unsafe_allow_html=True)
+    _, center, _ = st.columns([1, 2, 1])
+    with center:
+        # Logo show karne ki koshish karo, nahi to school ka naam hi dikhao
+        try:
+            st.image("School_logo.png", width=150)
+        except:
+            pass
+        st.markdown("<h2 style='text-align: center;'>Cambridge International</h2>", unsafe_allow_html=True)
+        role = st.selectbox("Select Role", ["Teacher", "Clerk", "Principal"])
+        pwd = st.text_input("Password", type="password")
+        if st.button("Login"):
+            valid = False
+            if role == "Teacher" and pwd == "TCH2024": valid = True
+            elif role == "Clerk" and pwd == "CLK2024": valid = True
+            elif role == "Principal" and pwd == "PRN2024": valid = True
+            if valid:
+                st.session_state["authenticated"] = True
+                st.session_state["role"] = role
+                st.rerun()
+            else:
+                st.error("Invalid credentials")
     st.stop()
 
 # -----------------------------
@@ -262,7 +134,7 @@ def load_fee_structure():
     return fee_map
 
 # -----------------------------
-# 5. SIDEBAR (using st.radio – stable)
+# 5. SIDEBAR (fast radio buttons)
 # -----------------------------
 with st.sidebar:
     st.header("Administration")
@@ -306,7 +178,6 @@ if not all([master_sheet, attendance_sheet, fees_sheet]):
     st.error("Required sheets missing.")
     st.stop()
 
-# Ensure ANNUAL_FEE and ADMISSION_FEE columns exist
 def ensure_column(sheet, col_name):
     headers = sheet.row_values(1)
     if col_name not in headers:
@@ -316,7 +187,6 @@ def ensure_column(sheet, col_name):
 ensure_column(master_sheet, "ANNUAL_FEE")
 ensure_column(master_sheet, "ADMISSION_FEE")
 
-# Helper to compute paid total from FEES sheet
 def compute_paid_total(sid, all_fees):
     total = 0
     if all_fees and len(all_fees)>1:
@@ -328,7 +198,12 @@ def compute_paid_total(sid, all_fees):
 # -----------------------------
 # 7. BRANDING
 # -----------------------------
-st.markdown("<h2 style='text-align:center; color:#f0c45a;'>CAMBRIDGE INTERNATIONAL</h2>", unsafe_allow_html=True)
+# Logo display (agar file hai to dikhao, nahi to sirf naam)
+try:
+    st.image("School_logo.png", width=120)
+except:
+    pass
+st.markdown("<h2 style='text-align:center;'>CAMBRIDGE INTERNATIONAL</h2>", unsafe_allow_html=True)
 st.divider()
 
 # =============================
@@ -561,17 +436,18 @@ elif menu == "Fee Collection":
                         fees_sheet.insert_row([sid, amt, mo, f"{ts} {mode}", fee_type], index=2)
                         st.success(f"Payment of ₹{amt} recorded ({fee_type})")
                         st.cache_data.clear()
+                        # Simple receipt (no heavy CSS)
                         receipt_html = f"""
-                        <div class="receipt-card">
-                            <h3>PAYMENT RECEIPT</h3>
-                            <p><strong>Receipt No:</strong> RCP-{int(datetime.timestamp(datetime.now()))}</p>
-                            <p><strong>Date:</strong> {datetime.now().strftime("%d-%m-%Y %H:%M")}</p>
-                            <p><strong>Student ID:</strong> {sid}</p>
-                            <p><strong>Student Name:</strong> {student_name}</p>
-                            <p><strong>Fee Type:</strong> {fee_type}</p>
-                            <p><strong>Amount Paid:</strong> ₹{amt}</p>
-                            <p><strong>Payment Mode:</strong> {mode}</p>
-                            <p><strong>Month:</strong> {mo}</p>
+                        <div style="border:1px solid #ccc; padding:15px; margin-top:20px; border-radius:8px;">
+                            <h3 style="text-align:center;">PAYMENT RECEIPT</h3>
+                            <p><b>Receipt No:</b> RCP-{int(datetime.timestamp(datetime.now()))}</p>
+                            <p><b>Date:</b> {datetime.now().strftime("%d-%m-%Y %H:%M")}</p>
+                            <p><b>Student ID:</b> {sid}</p>
+                            <p><b>Student Name:</b> {student_name}</p>
+                            <p><b>Fee Type:</b> {fee_type}</p>
+                            <p><b>Amount Paid:</b> ₹{amt}</p>
+                            <p><b>Payment Mode:</b> {mode}</p>
+                            <p><b>Month:</b> {mo}</p>
                         </div>
                         """
                         st.markdown(receipt_html, unsafe_allow_html=True)
