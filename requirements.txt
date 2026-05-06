@@ -3,4 +3,3 @@ gspread
 oauth2client
 pandas
 xlsxwriter
-streamlit-option-menu
