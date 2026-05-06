@@ -455,4 +455,4 @@ elif menu == "Fee Collection":
                         with col1:
                             st.markdown("""
                                 <button onclick="window.print()" style="background:#1a3b5d; color:white; border:none; padding:8px 16px; border-radius:6px; cursor:pointer;">
-          
+         
