@@ -320,7 +320,7 @@ if not all([master_sheet, attendance_sheet, fees_sheet]):
     st.error("Required sheets missing.")
     st.stop()
 
-# Ensure Annual_Fee and Admission_Fee columns exist (matching actual sheet headers)
+# Ensure ANNUAL_FEE and ADMISSION_FEE columns exist (matching sheet headers)
 def ensure_column(sheet, col_name):
     headers = sheet.row_values(1)
     if col_name not in headers:
@@ -480,41 +480,45 @@ elif menu == "Student Attendance":
                 except Exception as e: st.error(f"Error: {e}")
 
 # =============================
-# 10. ATTENDANCE REPORT
+# 10. ATTENDANCE REPORT (FIXED f-string)
 # =============================
 elif menu == "Attendance Report":
     st.subheader(f"Monthly Attendance Report – {selected_class}")
     months = ["January","February","March","April","May","June","July","August","September","October","November","December"]
     sel_month = st.selectbox("Month", months, index=datetime.now().month-1)
-    sel_year = st.number_input("Year", 2020,2030, datetime.now().year)
-    mn = months.index(sel_month)+1
-    ms = f"{mn:02d}"
-    if len(attendance_data)<2: st.warning("No data.")
-    else:
-        att_headers = attendance_data[0]
-        dcols = []; cidx = []
-        for i,h in enumerate(att_headers):
-            if i==0: continue
-            p = h.split('-')
-            if len(p)==3 and p[1]==ms and p[2]==str(sel_year):
-                dcols.append(h); cidx.append(i)
-        if not dcols: st.warning(f"No records for {sel_month} {sel_year}")
+    sel_year = st.number_input("Year", min_value=2020, max_value=2030, value=datetime.now().year)
+    month_num = months.index(sel_month) + 1
+    month_str = f"{month_num:02d}"
+
+    with st.spinner("Generating attendance report..."):
+        if len(attendance_data) < 2:
+            st.warning("No attendance data.")
         else:
-            total_days = len(dcols)
-            recs = []
-            for row in attendance_data[1:]:
-                sid = row[0]
-                name = "N/A"
-                if not df_master.empty:
-                    mask = df_master[id_col].astype(str)==sid
-                    if mask.any(): name = df_master.loc[mask, name_col].values[0]
-                present = sum(1 for ci in cidx if ci<len(row) and row[ci].strip().upper()=='P')
-                pct = (present/total_days*100) if total_days else 0
-                recs.append({"Student ID":sid,"Name":name,"Working Days":total_days,"Present":present,"Attendance %":round(pct,1)})
-            df_rep = pd.DataFrame(recs)
-            def hl(val): return 'background-color: #ffcccc' if val<75 else ''
-            st.dataframe(df_rep.style.map(hl, subset=['Attendance %']), use_container_width=True)
-            buf = io.BytesIO()
-            with pd.ExcelWriter(buf, engine='xlsxwriter') as w:
-                df_rep.to_excel(w, index=False, sheet_name='Attendance')
-            st.download_button("Download Excel", buf.getvalue(), f"Atten
+            att_headers = attendance_data[0]
+            date_cols = []
+            col_indices = []
+            for idx, h in enumerate(att_headers):
+                if idx == 0: continue
+                parts = h.split('-')
+                if len(parts) == 3 and parts[1] == month_str and parts[2] == str(sel_year):
+                    date_cols.append(h)
+                    col_indices.append(idx)
+            if not date_cols:
+                st.warning(f"No records for {sel_month} {sel_year}")
+            else:
+                total_days = len(date_cols)
+                records = []
+                for row in attendance_data[1:]:
+                    sid = row[0]
+                    name = "N/A"
+                    if not df_master.empty:
+                        mask = df_master[id_col].astype(str) == sid
+                        if mask.any():
+                            name = df_master.loc[mask, name_col].values[0]
+                    present = sum(1 for ci in col_indices if ci < len(row) and row[ci].strip().upper() == 'P')
+                    percent = (present / total_days * 100) if total_days else 0
+                    records.append({
+                        "Student ID": sid,
+                        "Name": name,
+                        "Working Days": total_days,
+                        "P
